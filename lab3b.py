@@ -8,15 +8,17 @@ import os.path
 def main():
 	if len(sys.argv) != 2:
 		print("Error: Bad arguments", file=sys.stderr)
-		return
+		sys.exit(1)
 	if os.path.isfile(sys.argv[1]):
 		with open(sys.argv[1], 'r') as f:
 			lines = f.read().splitlines()
 	else:
 		print("Error: File could not be opened", file=sys.stderr)
-		return
+		sys.exit(1)
 
+	# These contain strings, not numbers, which is probably a bad design choice
 	superblock = ""
+	group = ""
 	inodes = []
 	dirs = []
 	free_blocks = []
@@ -25,52 +27,174 @@ def main():
 	for l in lines:
 		if l[:10] == 'SUPERBLOCK':
 			superblock = l.split(',')
-		if l[:6] == 'INODE':
+		if l[:5] == 'GROUP':
+			group = l.split(',')
+		if l[:5] == 'INODE':
 			inodes.append(l.split(','))
-		if l[:7] == 'DIRENT':
+		if l[:6] == 'DIRENT':
 			dirs.append(l.split(','))
-		if l[:6] == 'BFREE':
-			free_blocks.append(l.split(','))
-		if l[:6] == 'IFREE':
-			free_inodes.append(l.split(','))
-		if l[:9] == 'INDIRECT':
+		if l[:5] == 'BFREE':
+			free_blocks.append(int((l.split(',')[1])))
+		if l[:5] == 'IFREE':
+			free_inodes.append(int((l.split(',')[1])))
+		if l[:8] == 'INDIRECT':
 			indirect.append(l.split(','))
 
-	if superblock == "":
-		print("Error: Could not find superblock in file", file=sys.stderr)
-
 	# Total number of blocks
-	max_block = superblock[1]
-	# Block number of first non-reserved inode
-	first_available = superblock[7]
+	max_block = int(superblock[1])
+	# Assumes first data block is located directly after inode table
+	# Technically untrue if inode table is more than 1 block
+	first_available = int(group[8]) + 1
+	# Dictionary associating each block number with list if inodes using it
+	# The list contains the index into the inodes array to access the inode
+	block = {}
+	inode_dict = {}
 
-	# Scan direct blocks
+	# Scan inode blocks
+	# There's definitely a better way to do this
 	for i in range(len(inodes)):
 		inode = inodes[i]
+		inode_num = int(inode[1])
 		for direct in range(12, 24):
-			if inode[direct] < 0 or inode[direct] > max_block:
-				print("INVALID BLOCK ", inode[direct], " IN INODE ", i, " AT OFFSET 0")
-			elif inode[direct] < first_available:
-				print("RESERVED BLOCK ", inode[direct], " IN INODE ", i, " AT OFFSET 0")
+			block_num = int(inode[direct])
+			if block_num < 0 or block_num > max_block:
+				print("INVALID BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 0")
+			elif block_num > 0 and block_num < first_available:
+				print("RESERVED BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 0")
+			elif block_num >= first_available:
+				if block_num in block:
+					block[block_num].append(i)
+				else:
+					block[block_num] = [i]
+
+		block_num = int(inode[24])
+		if block_num < 0 or block_num > max_block:
+			print("INVALID INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 12")
+		elif block_num > 0 and block_num < first_available:
+			print("RESERVED INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 12")
+		elif block_num >= first_available:
+			if block_num in block:
+				block[block_num].append(i)
+			else:
+				block[block_num] = [i]
+
+		block_num = int(inode[25])
+		if block_num < 0 or block_num > max_block:
+			print("INVALID DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 268")
+		elif block_num > 0 and block_num < first_available:
+			print("RESERVED DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 268")
+		elif block_num >= first_available:
+			if block_num in block:
+				block[block_num].append(i)
+			else:
+				block[block_num] = [i]
+
+		block_num = int(inode[26])
+		if block_num < 0 or block_num > max_block:
+			print("INVALID TRIPLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 65804")
+		elif block_num > 0 and block_num < first_available:
+			print("RESERVED TRIPLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 65804")			
+		elif block_num >= first_available:
+			if block_num in block:
+				block[block_num].append(i)
+			else:
+				block[block_num] = [i]
+
+		if inode_num in inode_dict:
+			inode_dict[inode_num].append(i)
+		else:
+			inode_dict[inode_num] = [i]
 
 	# Scan indirect blocks
+	# This isn't checked in the sanity check, so I hope it works
 	for i in range(len(indirect)):
 		ind = indirect[i]
+		inode_num = int(ind[1])
+		level = int(ind[2])		
+		offset = int(ind[3])
+		block_num = int(ind[5])
 		# Not completely sure if this is correct
-		if ind[5] < 0 or ind[5] > max_block:
-			if ind[2] == 1:
-				print("INVALID INDIRECT BLOCK ", ind[5], " IN INODE ", ind[1], " AT OFFSET ", ind[3])
-			if ind[2] == 2:
-				print("INVALID DOUBLE INDIRECT BLOCK ", ind[5], " IN INODE ", ind[1], " AT OFFSET ", ind[3])
-			if ind[2] == 3:
-				print("INVALID TRIPLE INDIRECT BLOCK ", ind[5], " IN INODE ", ind[1], " AT OFFSET ", ind[3])
-		elif ind[5] < first_available:
-			if ind[2] == 1:
-				print("RESERVED INDIRECT BLOCK ", ind[5], " IN INODE ", ind[1], " AT OFFSET ", ind[3])
-			if ind[2] == 2:
-				print("RESERVED DOUBLE INDIRECT BLOCK ", ind[5], " IN INODE ", ind[1], " AT OFFSET ", ind[3])
-			if ind[2] == 3:
-				print("RESERVED TRIPLE INDIRECT BLOCK ", ind[5], " IN INODE ", ind[1], " AT OFFSET ", ind[3])			
+		if block_num < 0 or block_num > max_block:
+			if level == 1:
+				print("INVALID BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
+			if level == 2:
+				print("INVALID INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
+			if level == 3:
+				print("INVALID DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
+		elif block_num < first_available:
+			if level == 1:
+				print("RESERVED BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
+			if level == 2:
+				print("RESERVED INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
+			if level == 3:
+				print("RESERVED DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)			
+		elif block_num >= first_available:
+			if block_num in block:
+				block[block_num].append(i)
+			else:
+				block[block_num] = [i]
+
+	keys = list(block.keys())
+	# I'm not actually sure what the value of start is supposed to be,
+	# but it's not first_available
+	for b in range(first_available, max_block):
+		if b not in keys and b not in free_blocks:
+			print("UNREFERENCED BLOCK", b)
+		if b in keys and b in free_blocks:
+			print("ALLOCATED BLOCK", b, "ON FREELIST")
+	for b in keys:
+		# At least two inodes use the same block
+		if len(block[b]) > 1:
+			# Scan through block pointers of each inode
+			for inode_index in block[b]:
+				inode = inodes[inode_index]
+				inode_num = int(inode[1])
+				found = False
+				for direct in range(12, 24):
+					block_num = int(inode[direct])
+					if block_num == b:
+						print("DUPLICATE BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 0")
+						found = True
+						break
+				block_num = int(inode[24])
+				if block_num == b:
+					print("DUPLICATE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 12")
+					found = True
+
+				block_num = int(inode[25])
+				if block_num == b:
+					print("DUPLICATE DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 268")
+					found = True
+
+				block_num = int(inode[26])
+				if block_num == b:
+					print("DUPLICATE TRIPLE INDIRECT BLOCk", block_num, "IN INODE", inode_num, "AT OFFSET 65804")
+					found = True
+
+				# If it wasn't in inode entry, have to scan indirect entries for the block number
+				# This isn't checked in sanity check either
+				if not found:
+					for i in range(len(indirect)):
+						ind = indirect[i]
+						inode_num = int(ind[1])
+						level = int(ind[2])		
+						offset = int(ind[3])
+						block_num = int(ind[5])
+						if block_num == b:
+							if level == 1:
+								print("DUPLICATE BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
+							if level == 2:
+								print("DUPLICATE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
+							if level == 3:
+								print("DUPLICATE DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
+
+	keys = list(inode_dict.keys())
+	# Again, I'm not sure what number to start at
+	for i in range(int(superblock[7]), int(group[3]) + 1):
+		if i not in keys and i not in free_inodes:
+			print("UNALLOCATED INODE", i, "NOT ON FREELIST")
+		elif i in keys and i in free_inodes:
+			print("ALLOCATED INODE", i, "ON FREELIST")
 
 if __name__ == '__main__':
 	main()
