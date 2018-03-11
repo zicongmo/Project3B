@@ -42,9 +42,8 @@ def main():
 
 	# Total number of blocks
 	max_block = int(superblock[1])
-	# Assumes first data block is located directly after inode table
-	# Technically untrue if inode table is more than 1 block
-	first_available = int(group[8]) + 1
+	# Assumes first data block is located 3 blocks after start of inode table
+	first_available = int(group[8]) + 3
 	# Dictionary associating each block number with list if inodes using it
 	# The list contains the index into the inodes array to access the inode
 	block = {}
@@ -168,7 +167,7 @@ def main():
 
 				block_num = int(inode[26])
 				if block_num == b:
-					print("DUPLICATE TRIPLE INDIRECT BLOCk", block_num, "IN INODE", inode_num, "AT OFFSET 65804")
+					print("DUPLICATE TRIPLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 65804")
 					found = True
 
 				# If it wasn't in inode entry, have to scan indirect entries for the block number
@@ -189,12 +188,45 @@ def main():
 								print("DUPLICATE DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
 
 	keys = list(inode_dict.keys())
-	# Again, I'm not sure what number to start at
+	
+	# All reserved i-nodes
+	for i in range(0, int(superblock[7])):
+		if i in keys and i in free_inodes:
+			print("ALLOCATED INODE", i, "ON FREELIST")
+	
+	# From first unreserved i-node to highest i-node in group
 	for i in range(int(superblock[7]), int(group[3]) + 1):
 		if i not in keys and i not in free_inodes:
 			print("UNALLOCATED INODE", i, "NOT ON FREELIST")
 		elif i in keys and i in free_inodes:
 			print("ALLOCATED INODE", i, "ON FREELIST")
-
+	
+	# To count the links to each i-node
+	ref_count = {}
+	for i in range(len(dirs)):
+		dir = dirs[i]
+		inodenum = int(dir[3])
+		#print(inodenum)
+		if inodenum < 1 or inodenum > int(group[3]):
+			print("DIRECTORY INODE", dir[1], "NAME", dir[6], "INVALID INODE", inodenum)
+		elif inodenum in free_inodes:
+			print("DIRECTORY INODE", dir[1],"NAME", dir[6],"UNALLOCATED INODE", inodenum)
+		if inodenum in ref_count:
+			ref_count[inodenum] += 1
+		else:
+			ref_count[inodenum] = 1;
+	
+	# Check if for each i-node links matches enumerated linkcount
+	for i in range(len(inodes)):
+		inode = inodes[i]
+		linkcount = int(inode[6])
+		inodenum = int(inode[1])
+		if not inodenum in ref_count:
+			print("INODE", inodenum, "HAS", 0, "LINKS BUT LINKCOUNT IS", linkcount)
+		else:
+			links = ref_count[inodenum]
+			if links != linkcount:
+				print("INODE", inodenum, "HAS", links, "LINKS BUT LINKCOUNT IS", linkcount)
+	
 if __name__ == '__main__':
 	main()

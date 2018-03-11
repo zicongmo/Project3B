@@ -3,9 +3,9 @@
 # EMAIL: josephmo1594@ucla.edu, byang77@ucla.edu
 
 default:
-	gcc -Wall -Wextra -o lab3b lab3b.c
+	ln -s run.sh lab3b
 dist:
-	tar -zvcf lab3b-804654167.tar.gz lab3b.c README Makefile
+	tar -zvcf lab3b-804654167.tar.gz lab3b.py README Makefile run.sh
 clean:
 	rm -f lab3b-804654167.tar.gz lab3b
 	
