@@ -1,3 +1,4 @@
+#!/usr/local/cs/bin/python3
 # NAME: Zicong Mo, Benjamin Yang
 # ID: 804654167, 904771533
 # EMAIL: josephmo1594@ucla.edu, byang77@ucla.edu
