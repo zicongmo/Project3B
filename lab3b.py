@@ -3,6 +3,7 @@
 # ID: 804654167, 904771533
 # EMAIL: josephmo1594@ucla.edu, byang77@ucla.edu
 
+from math import ceil
 import sys
 import os.path
 
@@ -43,8 +44,8 @@ def main():
 
 	# Total number of blocks
 	max_block = int(superblock[1])
-	# Assumes first data block is located 3 blocks after start of inode table
-	first_available = int(group[8]) + 3
+	# Inodetable + ceiling(Number of inodes * inode_size / block_size)
+	first_available = int(group[8]) + ceil((int(superblock[2]) * int(superblock[4]))/int(superblock[3]))
 	# Dictionary associating each block number with list if inodes using it
 	# The list contains the index into the inodes array to access the inode
 	block = {}
@@ -135,8 +136,6 @@ def main():
 				block[block_num] = [i]
 
 	keys = list(block.keys())
-	# I'm not actually sure what the value of start is supposed to be,
-	# but it's not first_available
 	for b in range(first_available, max_block):
 		if b not in keys and b not in free_blocks:
 			print("UNREFERENCED BLOCK", b)
