@@ -57,7 +57,7 @@ def main():
 		inode_num = int(inode[1])
 		for direct in range(12, 24):
 			block_num = int(inode[direct])
-			if block_num < 0 or block_num > max_block:
+			if block_num < 0 or block_num >= max_block:
 				print("INVALID BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 0")
 			elif block_num > 0 and block_num < first_available:
 				print("RESERVED BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 0")
@@ -68,7 +68,7 @@ def main():
 					block[block_num] = [i]
 
 		block_num = int(inode[24])
-		if block_num < 0 or block_num > max_block:
+		if block_num < 0 or block_num >= max_block:
 			print("INVALID INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 12")
 		elif block_num > 0 and block_num < first_available:
 			print("RESERVED INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 12")
@@ -79,7 +79,7 @@ def main():
 				block[block_num] = [i]
 
 		block_num = int(inode[25])
-		if block_num < 0 or block_num > max_block:
+		if block_num < 0 or block_num >= max_block:
 			print("INVALID DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 268")
 		elif block_num > 0 and block_num < first_available:
 			print("RESERVED DOUBLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 268")
@@ -90,7 +90,7 @@ def main():
 				block[block_num] = [i]
 
 		block_num = int(inode[26])
-		if block_num < 0 or block_num > max_block:
+		if block_num < 0 or block_num >= max_block:
 			print("INVALID TRIPLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 65804")
 		elif block_num > 0 and block_num < first_available:
 			print("RESERVED TRIPLE INDIRECT BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET 65804")			
@@ -114,7 +114,7 @@ def main():
 		offset = int(ind[3])
 		block_num = int(ind[5])
 		# Not completely sure if this is correct
-		if block_num < 0 or block_num > max_block:
+		if block_num < 0 or block_num >= max_block:
 			if level == 1:
 				print("INVALID BLOCK", block_num, "IN INODE", inode_num, "AT OFFSET", offset)
 			if level == 2:
