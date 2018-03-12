@@ -201,20 +201,35 @@ def main():
 		elif i in keys and i in free_inodes:
 			print("ALLOCATED INODE", i, "ON FREELIST")
 	
-	# To count the links to each i-node
+	# Do all DIRENT related checks
 	ref_count = {}
+	parent_child = {}
+	# Hard-code first DIRENT as 2, may have to change this
+	parent_child["2"] = "2"
 	for i in range(len(dirs)):
 		dir = dirs[i]
 		inodenum = int(dir[3])
 		#print(inodenum)
 		if inodenum < 1 or inodenum > int(group[3]):
 			print("DIRECTORY INODE", dir[1], "NAME", dir[6], "INVALID INODE", inodenum)
-		elif inodenum in free_inodes:
+		elif inodenum not in keys:
 			print("DIRECTORY INODE", dir[1],"NAME", dir[6],"UNALLOCATED INODE", inodenum)
+		# Maybe below should be else of above checks
+		# Increment reference count as needed
 		if inodenum in ref_count:
 			ref_count[inodenum] += 1
 		else:
 			ref_count[inodenum] = 1;
+		if dir[6] == "'.'":
+			# Check if pointing to self
+			if dir[1] != dir[3]:
+				print("DIRECTORY INODE",dir[1],"NAME '.' LINK TO INODE", dir[3],"SHOULD BE",dir[1])
+		elif dir[6] == "'..'":
+			# Check if pointing to correct parent
+			if dir[3] != parent_child.get(dir[1]):
+				print("DIRECTORY INODE",dir[1],"NAME '..' LINK TO INODE", dir[3],"SHOULD BE",parent_child.get(dir[1]))
+		else:
+			parent_child[dir[3]] = dir[1]
 	
 	# Check if for each i-node links matches enumerated linkcount
 	for i in range(len(inodes)):
@@ -227,6 +242,6 @@ def main():
 			links = ref_count[inodenum]
 			if links != linkcount:
 				print("INODE", inodenum, "HAS", links, "LINKS BUT LINKCOUNT IS", linkcount)
-	
+
 if __name__ == '__main__':
 	main()
