@@ -214,23 +214,27 @@ def main():
 			print("DIRECTORY INODE", dir[1], "NAME", dir[6], "INVALID INODE", inodenum)
 		elif inodenum not in keys:
 			print("DIRECTORY INODE", dir[1],"NAME", dir[6],"UNALLOCATED INODE", inodenum)
-		# Maybe below should be else of above checks
+		else:
+			# Keep track of parents for valid inodes
+			if dir[6] == "'.'":
+				# Check if pointing to self
+				if dir[1] != dir[3]:
+					print("DIRECTORY INODE",dir[1],"NAME '.' LINK TO INODE", dir[3],"SHOULD BE",dir[1])
+			elif dir[6] != "'..'":
+				parent_child[dir[3]] = dir[1]
 		# Increment reference count as needed
 		if inodenum in ref_count:
 			ref_count[inodenum] += 1
 		else:
-			ref_count[inodenum] = 1;
-		if dir[6] == "'.'":
-			# Check if pointing to self
-			if dir[1] != dir[3]:
-				print("DIRECTORY INODE",dir[1],"NAME '.' LINK TO INODE", dir[3],"SHOULD BE",dir[1])
-		elif dir[6] == "'..'":
-			# Check if pointing to correct parent
+			ref_count[inodenum] = 1
+	
+	# Check if pointing to correct parent
+	for i in range(len(dirs)):
+		dir = dirs[i]
+		if dir[6] == "'..'":
 			if dir[3] != parent_child.get(dir[1]):
 				print("DIRECTORY INODE",dir[1],"NAME '..' LINK TO INODE", dir[3],"SHOULD BE",parent_child.get(dir[1]))
-		else:
-			parent_child[dir[3]] = dir[1]
-	
+    
 	# Check if for each i-node links matches enumerated linkcount
 	for i in range(len(inodes)):
 		inode = inodes[i]
